@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cybersecurity Dashboard</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            padding-bottom: 60px; /* Account for fixed footer */
+        }
+
+        .navbar {
+            background-color: #212529;
+        }
+
+        .navbar-brand, .nav-link {
+            color: #ffffff !important;
+        }
+
+        .card {
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 1rem;
+        }
+
+        footer {
+            background-color: #212529;
+            color: white;
+            text-align: center;
+            padding: 1rem 0;
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            z-index: 1000;
+        }
+
+        .results-tabs {
+            margin-top: 20px;
+        }
+
+        .tab-content {
+            padding: 20px;
+            background: white;
+            border: 1px solid #dee2e6;
+            border-top: none;
+            border-radius: 0 0 4px 4px;
+        }
+
+        .loading-spinner {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .results-section {
+            display: none;
+        }
+
+        pre {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+        }
+
+        .alert {
+            margin-top: 20px;
+        }
+
+        .status-badge {
+            font-size: 0.8em;
+            padding: 5px 10px;
+            border-radius: 15px;
+            margin-left: 10px;
+        }
+
+        .scan-history {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .dashboard-card {
+            transition: transform 0.2s;
+        }
+
+        .dashboard-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .scan-options {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+        }
+
+        .connection-status {
+            position: fixed;
+            top: 70px;
+            right: 20px;
+            z-index: 1000;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Connection Status -->
+    <div class="connection-status" id="connection-status"></div>
+
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark sticky-top">
+        <div class="container">
+            <a class="navbar-brand" href="#">CyberSec Tool</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item"><a class="nav-link" href="#dashboard">Dashboard</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#nmap">Nmap</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#reports">Reports</a></li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" id="server-status">
+                            <span class="status-indicator">⚪</span> Server Status
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container my-5">
+        <!-- Dashboard Section -->
+        <section id="dashboard" class="mb-5">
+            <h2 class="mb-4">Dashboard</h2>
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="card p-3 dashboard-card">
+                        <h5>Total Scans</h5>
+                        <p id="total-scans" class="display-4">0</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card p-3 dashboard-card">
+                        <h5>Active Scans</h5>
+                        <p id="active-scans" class="display-4">0</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card p-3 dashboard-card">
+                        <h5>Reports Generated</h5>
+                        <p id="total-reports" class="display-4">0</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Nmap Section -->
+        <section id="nmap" class="mb-5">
+            <h2 class="mb-4">Nmap Scanner</h2>
+            <div class="card">
+                <div class="card-body">
+                    <form id="scan-form">
+                        <div class="scan-options">
+                            <div class="mb-3">
+                                <label for="target-ip" class="form-label">Target IP Address/Range</label>
+                                <input type="text" class="form-control" id="target-ip" placeholder="e.g., 192.168.1.1 or example.com" required>
+                                <div class="form-text">Enter an IP address, IP range, or hostname</div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="scan-type" class="form-label">Scan Type</label>
+                                <select class="form-select" id="scan-type">
+                                    <option value="syn">SYN Scan (Quick)</option>
+                                    <option value="udp">UDP Scan (Service Detection)</option>
+                                    <option value="os">OS Detection (Comprehensive)</option>
+                                </select>
+                            </div>
+                            <button type="submit" class="btn btn-primary" id="start-scan">
+                                Start Scan
+                            </button>
+                        </div>
+                    </form>
+
+                    <!-- Loading Spinner -->
+                    <div class="loading-spinner" id="scanner-loading">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2">Scanning in progress... Please wait</p>
+                    </div>
+
+                    <!-- Results Section -->
+                    <div class="results-section" id="scan-results">
+                        <div class="results-tabs">
+                            <ul class="nav nav-tabs" role="tablist">
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link active" id="ai-tab" data-bs-toggle="tab" data-bs-target="#ai-analysis" type="button" role="tab">AI Analysis</button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="raw-tab" data-bs-toggle="tab" data-bs-target="#raw-results" type="button" role="tab">Raw Results</button>
+                                </li>
+                            </ul>
+                            <div class="tab-content">
+                                <div class="tab-pane fade show active" id="ai-analysis" role="tabpanel">
+                                    <div id="ai-content"></div>
+                                </div>
+                                <div class="tab-pane fade" id="raw-results" role="tabpanel">
+                                    <h5>Scan Command:</h5>
+                                    <pre id="scan-command"></pre>
+                                    <h5>Results:</h5>
+                                    <pre id="raw-content"></pre>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Reports Section -->
+        <section id="reports">
+            <h2 class="mb-4">Scan History & Reports</h2>
+            <div class="card">
+                <div class="card-body">
+                    <div class="scan-history">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Target</th>
+                                    <th>Scan Type</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="scan-history">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Footer -->
+    <footer>
+        <p>&copy; 2025 CyberSec Tool. All rights reserved.</p>
+    </footer>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const API_URL = 'http://192.168.1.9:5000';
+        const scanForm = document.getElementById('scan-form');
+        const loadingSpinner = document.getElementById('scanner-loading');
+        const resultsSection = document.getElementById('scan-results');
+        const connectionStatus = document.getElementById('connection-status');
+        
+        let totalScans = 0;
+        let activeScans = 0;
+        let scanHistory = [];
+    
+        // Check server status periodically
+        async function checkServerStatus() {
+            try {
+                const response = await fetch(`${API_URL}/api/status`);
+                const data = await response.json();
+                
+                if (data.running) {
+                    connectionStatus.innerHTML = '<div class="alert alert-success">Server Connected</div>';
+                    document.getElementById('server-status').innerHTML = '🟢 Server Online';
+                    setTimeout(() => {
+                        connectionStatus.innerHTML = '';
+                    }, 3000);
+                }
+            } catch (error) {
+                connectionStatus.innerHTML = '<div class="alert alert-danger">Server Disconnected</div>';
+                document.getElementById('server-status').innerHTML = '🔴 Server Offline';
+            }
+        }
+    
+        // Check status initially and every 30 seconds
+        checkServerStatus();
+        setInterval(checkServerStatus, 30000);
+    
+        function updateDashboard() {
+            document.getElementById('total-scans').textContent = totalScans;
+            document.getElementById('active-scans').textContent = activeScans;
+            document.getElementById('total-reports').textContent = scanHistory.filter(scan => scan.status === 'Completed').length;
+        }
+    
+        function addScanToHistory(target, type, status, results = null) {
+            const scanData = {
+                id: Date.now(),
+                date: new Date().toLocaleString(),
+                target,
+                type,
+                status,
+                results
+            };
+            
+            scanHistory.unshift(scanData);
+            updateScanHistoryTable();
+            saveScanHistory();
+        }
+    
+        function updateScanHistoryTable() {
+            const historyTable = document.getElementById('scan-history');
+            historyTable.innerHTML = '';
+    
+            scanHistory.forEach(scan => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${scan.date}</td>
+                    <td>${scan.target}</td>
+                    <td>${scan.type}</td>
+                    <td><span class="badge ${scan.status === 'Completed' ? 'bg-success' : 'bg-danger'} status-badge">${scan.status}</span></td>
+                    <td>
+                        <button class="btn btn-sm btn-primary" onclick="viewScanResults(${scan.id})" ${scan.status === 'Failed' ? 'disabled' : ''}>
+                            View Report
+                        </button>
+                        <button class="btn btn-sm btn-secondary" onclick="downloadReport(${scan.id})" ${scan.status === 'Failed' ? 'disabled' : ''}>
+                            Download
+                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteScanRecord(${scan.id})">
+                            Delete
+                        </button>
+                    </td>
+                `;
+                historyTable.appendChild(row);
+            });
+        }
+    
+        // Save scan history to localStorage
+        function saveScanHistory() {
+            localStorage.setItem('scanHistory', JSON.stringify(scanHistory));
+        }
+    
+        // Load scan history from localStorage
+        function loadScanHistory() {
+            const saved = localStorage.getItem('scanHistory');
+            if (saved) {
+                scanHistory = JSON.parse(saved);
+                updateScanHistoryTable();
+                totalScans = scanHistory.length;
+                updateDashboard();
+            }
+        }
+    
+        // Handle scan form submission
+        scanForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const ipAddress = document.getElementById('target-ip').value;
+            const scanType = document.getElementById('scan-type').value;
+            
+            // Clear previous results
+            document.getElementById('ai-content').innerHTML = '';
+            document.getElementById('raw-content').textContent = '';
+            document.getElementById('scan-command').textContent = '';
+            
+            // Remove previous errors
+            const previousErrors = resultsSection.querySelectorAll('.alert');
+            previousErrors.forEach(error => error.remove());
+            
+            // Show loading state
+            loadingSpinner.style.display = 'block';
+            resultsSection.style.display = 'none';
+            activeScans++;
+            updateDashboard();
+    
+            try {
+                const response = await fetch(`${API_URL}/api/scan`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        ip: ipAddress,
+                        scanType: scanType
+                    })
+                });
+    
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+    
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Display AI Analysis
+                    if (data.ai_analysis && data.ai_analysis.success) {
+                        document.getElementById('ai-content').innerHTML = `
+                            <div class="alert alert-success">
+                                <h5>AI Analysis Results:</h5>
+                                ${data.ai_analysis.analysis}
+                            </div>
+                        `;
+                    } else {
+                        document.getElementById('ai-content').innerHTML = `
+                            <div class="alert alert-warning">
+                                <h5>AI Analysis Warning:</h5>
+                                <p>${data.ai_analysis.error || 'AI analysis failed'}</p>
+                            </div>
+                        `;
+                    }
+    
+                    // Display Raw Results
+                    if (data.command) {
+                        document.getElementById('scan-command').textContent = data.command;
+                    }
+                    if (data.raw_results) {
+                        document.getElementById('raw-content').textContent = 
+                            JSON.stringify(data.raw_results, null, 2);
+                    }
+    
+                    // Add to scan history
+                    addScanToHistory(ipAddress, scanType, 'Completed', data);
+                    
+                    resultsSection.style.display = 'block';
+                } else {
+                    throw new Error(data.error || 'Scan failed');
+                }
+            } catch (error) {
+                console.error('Scan error:', error);
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'alert alert-danger';
+                errorDiv.innerHTML = `
+                    <h5>Scan Error:</h5>
+                    <p>${error.message}</p>
+                    <p class="mb-0">Please check:</p>
+                    <ul class="mb-0">
+                        <li>The target IP/hostname is valid</li>
+                        <li>The server is running and accessible</li>
+                        <li>You have proper permissions</li>
+                    </ul>
+                `;
+                resultsSection.insertBefore(errorDiv, resultsSection.firstChild);
+                resultsSection.style.display = 'block';
+                addScanToHistory(ipAddress, scanType, 'Failed');
+            } finally {
+                loadingSpinner.style.display = 'none';
+                activeScans--;
+                totalScans++;
+                updateDashboard();
+            }
+        });
+    
+        // Function to view saved scan results
+        window.viewScanResults = function(scanId) {
+            const scan = scanHistory.find(s => s.id === scanId);
+            if (scan && scan.results) {
+                document.getElementById('ai-content').innerHTML = `
+                    <div class="alert alert-success">
+                        <h5>AI Analysis Results:</h5>
+                        ${scan.results.ai_analysis.analysis}
+                    </div>
+                `;
+                document.getElementById('scan-command').textContent = scan.results.command;
+                document.getElementById('raw-content').textContent = 
+                    JSON.stringify(scan.results.raw_results, null, 2);
+                
+                resultsSection.style.display = 'block';
+                document.getElementById('nmap').scrollIntoView({ behavior: 'smooth' });
+            }
+        };
+    
+        // Function to download report
+        window.downloadReport = function(scanId) {
+            const scan = scanHistory.find(s => s.id === scanId);
+            if (scan && scan.results) {
+                const report = {
+                    scanDate: scan.date,
+                    target: scan.target,
+                    scanType: scan.type,
+                    results: scan.results
+                };
+    
+                const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `scan-report-${scan.target}-${new Date().toISOString()}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }
+        };
+    
+        // Function to delete scan record
+        window.deleteScanRecord = function(scanId) {
+            if (confirm('Are you sure you want to delete this scan record?')) {
+                scanHistory = scanHistory.filter(scan => scan.id !== scanId);
+                updateScanHistoryTable();
+                saveScanHistory();
+                totalScans = scanHistory.length;
+                updateDashboard();
+            }
+        };
+    
+        // Load scan history when page loads
+        loadScanHistory();
+    });
+    </script>
